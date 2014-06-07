@@ -998,6 +998,29 @@ int64 GetProofOfStakeReward(int64 nCoinAge, int64 nFees)
     return nSubsidy + nFees;
 }
 
+double GetPoSKernelPS2(const CBlockIndex* blockindex);
+
+int64 GetProofOfStakeReward2(const CBlockIndex* blockindex, int64 nCoinAge, int64 nFees)
+{
+    int64 nSubsidy;
+    int64 nNetworkWeight_ = GetPoSKernelPS2(blockindex);
+    if(nNetworkWeight_ < 21)
+    {
+        nSubsidy = 0;
+    }
+    else
+    {
+        nSubsidy = (int64)(nCoinAge * ((0.17*(log(nNetworkWeight_/20)))*CENT) * 33 / (365 * 33 + 8));
+
+        //cout << nNetworkWeight_ << " " << nSubsidy;
+    }
+    if (fDebug && GetBoolArg("-printcreation"))
+        printf("GetProofOfStakeReward(): create=%s nCoinAge=%"PRI64d"\n", FormatMoney(nSubsidy).c_str(), nCoinAge);
+
+    return nSubsidy + nFees;
+}
+
+
 static const int64 nTargetTimespan = 16 * 60;  // 16 mins
 
 //
@@ -1517,6 +1540,8 @@ bool CBlock::DisconnectBlock(CTxDB& txdb, CBlockIndex* pindex)
     return true;
 }
 
+int64 GetProofOfStakeReward2(const CBlockIndex* blockindex, int64 nCoinAge, int64 nFees);
+
 bool CBlock::ConnectBlock(CTxDB& txdb, CBlockIndex* pindex, bool fJustCheck)
 {
     // Check it again in case a previous version let a bad block in, but skip BlockSig checking
@@ -1623,7 +1648,7 @@ bool CBlock::ConnectBlock(CTxDB& txdb, CBlockIndex* pindex, bool fJustCheck)
         if (!vtx[1].GetCoinAge(txdb, nCoinAge))
             return error("() : %s unable to get coin age for coinstake", vtx[1].GetHash().ToString().substr(0,10).c_str());
 
-        int64 nCalculatedStakeReward = GetProofOfStakeReward(nCoinAge, nFees);
+        int64 nCalculatedStakeReward = GetProofOfStakeReward2(pindex, nCoinAge, nFees);
         //cout << " " << nCalculatedStakeReward << " " << nStakeReward << endl;
         if (nStakeReward > nCalculatedStakeReward)
            return DoS(50, error("ConnectBlock() : coinstake pays too much(actual=%"PRI64d" vs calculated=%"PRI64d")", nStakeReward, nCalculatedStakeReward));
